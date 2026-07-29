@@ -1,0 +1,3 @@
+# Copy to .dev.vars for local development (gitignored).
+# Production uses: wrangler pages secret put IP_SALT
+IP_SALT="local-development-only-not-a-real-salt"

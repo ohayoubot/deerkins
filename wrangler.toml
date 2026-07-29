@@ -1,0 +1,21 @@
+name = "deerkins"
+pages_build_output_dir = "public"
+compatibility_date = "2025-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "deerkins"
+database_id = "ec3b15b6-64ef-45ce-a8a7-d11ff3b842b7"
+
+[vars]
+SAVES_PER_HOUR = "10"
+GLOBAL_SAVES_PER_HOUR = "300"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "deerkins-preview"
+database_id = "8b865cbc-148c-4dfb-8be8-932dc9ca5562"
+
+[env.preview.vars]
+SAVES_PER_HOUR = "10"
+GLOBAL_SAVES_PER_HOUR = "300"
