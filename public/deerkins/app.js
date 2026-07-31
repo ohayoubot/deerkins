@@ -1,3 +1,4 @@
+import { imageToKinskode } from "./image.js";
 import {
 	autoCrop,
 	fromIrc,
@@ -7,6 +8,7 @@ import {
 	measure,
 	normalise,
 	PALETTE,
+	sanitiseName,
 	TRANSPARENT,
 	toIrc,
 	transforms,
@@ -18,9 +20,17 @@ const DEFAULT_COLS = 30;
 const CELL_W = 25;
 const CELL_H = 40;
 
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+/** Downscale to this before sampling. A 40x30 grid needs nothing bigger, and
+    it keeps a 50 megapixel phone photo from becoming 200 MB of ImageData. */
+const SAMPLE_MAX = 1024;
+
 const $ = (sel) => document.querySelector(sel);
 
 const gridEl = $("#grid");
+const gridWrapEl = $(".grid-wrap");
+const ditherEl = $("#dither");
+const importFileEl = $("#importfile");
 const statusEl = $("#status");
 const kinsEl = $("#kinskode");
 const ircEl = $("#irccode");
@@ -308,6 +318,119 @@ function download(blob, filename) {
 	a.click();
 	setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+/* ---- image import ---- */
+
+/**
+ * Draw the bitmap into a canvas and read it back. createImageBitmap takes the
+ * File directly, which matters: the CSP in public/_headers allows img-src
+ * 'self' data: only, so an <img> pointed at a blob: URL would be refused.
+ */
+function readPixels(bitmap) {
+	const scale = Math.min(1, SAMPLE_MAX / Math.max(bitmap.width, bitmap.height));
+	const w = Math.max(1, Math.round(bitmap.width * scale));
+	const h = Math.max(1, Math.round(bitmap.height * scale));
+
+	const canvas = document.createElement("canvas");
+	canvas.width = w;
+	canvas.height = h;
+
+	const ctx = canvas.getContext("2d", { willReadFrequently: true });
+	ctx.imageSmoothingQuality = "high";
+	ctx.drawImage(bitmap, 0, 0, w, h);
+	return ctx.getImageData(0, 0, w, h);
+}
+
+async function importImage(file) {
+	if (!file) return;
+	if (!file.type.startsWith("image/"))
+		return say(`${file.name} is not an image.`, true);
+	// Rasterising an untrusted SVG is a bigger surface than this needs, and one
+	// without an intrinsic size decodes differently in every browser.
+	if (file.type === "image/svg+xml") return say("SVG is not supported.", true);
+	if (file.size > MAX_IMPORT_BYTES)
+		return say("That image is over 10 MB.", true);
+
+	say(`Importing ${file.name}...`);
+
+	let bitmap;
+	try {
+		bitmap = await createImageBitmap(file);
+	} catch {
+		return say("That image could not be decoded.", true);
+	}
+
+	let kins;
+	try {
+		kins = imageToKinskode(readPixels(bitmap), { dither: ditherEl.checked });
+	} finally {
+		bitmap.close();
+	}
+
+	if (!autoCrop(kins)) return say("That image is entirely transparent.", true);
+
+	setKinskode(kins, { announce: false });
+	currentName = sanitiseName(file.name.replace(/\.[^.]+$/, "")) || null;
+	history.replaceState(null, "", location.pathname + location.search);
+
+	const { rows: h, cols: w } = measure(kins);
+	say(`Imported ${file.name} at ${w}×${h}.`);
+}
+
+const hasFiles = (e) =>
+	Array.from(e.dataTransfer?.types ?? []).includes("Files");
+
+// dragenter/dragleave fire for every element crossed, so count depth rather
+// than toggling on each one.
+let dragDepth = 0;
+
+function setDragging(on) {
+	gridWrapEl.classList.toggle("dragover", on);
+}
+
+window.addEventListener("dragenter", (e) => {
+	if (!hasFiles(e)) return;
+	e.preventDefault();
+	dragDepth++;
+	setDragging(true);
+});
+
+window.addEventListener("dragover", (e) => {
+	// Without this the browser navigates away to the dropped file.
+	if (!hasFiles(e)) return;
+	e.preventDefault();
+	e.dataTransfer.dropEffect = "copy";
+});
+
+window.addEventListener("dragleave", (e) => {
+	if (!hasFiles(e)) return;
+	dragDepth = Math.max(0, dragDepth - 1);
+	if (!dragDepth) setDragging(false);
+});
+
+window.addEventListener("drop", (e) => {
+	if (!hasFiles(e)) return;
+	e.preventDefault();
+	dragDepth = 0;
+	setDragging(false);
+	importImage(e.dataTransfer.files[0]);
+});
+
+window.addEventListener("paste", (e) => {
+	if (e.target.closest("input, textarea")) return;
+	const file = e.clipboardData?.files?.[0];
+	if (!file) return;
+	e.preventDefault();
+	importImage(file);
+});
+
+// Dropping is not reachable from a keyboard, so keep a real file picker too.
+$("#import").addEventListener("click", () => importFileEl.click());
+
+importFileEl.addEventListener("change", () => {
+	importImage(importFileEl.files[0]);
+	importFileEl.value = ""; // so the same file can be picked twice
+});
 
 async function api(path, options) {
 	const res = await fetch(path, options);

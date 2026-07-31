@@ -61,6 +61,16 @@
     </section>
 
     <section>
+      <h2>Import</h2>
+      <p class="hint">Drop an image anywhere on the page, paste one, or pick a file. It replaces the canvas.</p>
+      <p class="export">
+        <button type="button" id="import">Choose image…</button>
+      </p>
+      <label class="check"><input type="checkbox" id="dither"> Dither</label>
+      <input type="file" id="importfile" class="visually-hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp">
+    </section>
+
+    <section>
       <h2>Export</h2>
       <p class="hint">Downloads the current canvas.</p>
       <p class="export">
