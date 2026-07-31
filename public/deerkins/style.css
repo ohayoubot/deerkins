@@ -142,6 +142,10 @@ textarea {
 .cell { aspect-ratio: 5 / 8; }
 .cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
 
+/* outline-offset stays negative: .grid-wrap scrolls, so anything drawn
+   outside the grid's own box would be clipped. */
+.grid-wrap.dragover .grid { outline: 3px dashed var(--accent); outline-offset: -3px; }
+
 /* The 16 mIRC colours. Kept in step with PALETTE in kins.js. Both are
    fixed by the IRC colour spec, so neither side moves. */
 .k-0  { background: #000000; }
@@ -197,6 +201,9 @@ textarea {
 
 .export { display: flex; gap: .3rem; margin: 0; }
 .export button { flex: 1; }
+
+.check { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; font-size: .82rem; color: var(--ink-dim); }
+.check input { width: auto; margin: 0; }
 
 /* ---- dialog ---- */
 
