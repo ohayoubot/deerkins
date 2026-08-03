@@ -15,3 +15,9 @@
 
 /deerkins/style.css
   Cache-Control: public, max-age=600
+
+/drop/*.js
+  Cache-Control: public, max-age=600
+
+/drop/style.css
+  Cache-Control: public, max-age=600
