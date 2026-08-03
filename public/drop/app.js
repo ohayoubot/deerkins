@@ -1,6 +1,7 @@
 /*
  * The upload page. A grant arrives in the url fragment, is traded for a cookie,
- * and images are sent one at a time to api/upload.
+ * and images are staged for review, then sent one at a time to api/upload once
+ * the user confirms.
  *
  * Every image is redrawn through a canvas before it is sent, which is what
  * drops exif: a phone photo carries the coordinates it was taken at. Animated
@@ -28,9 +29,16 @@ const zoneEl = $("#zone");
 const fileEl = $("#file");
 const statusEl = $("#status");
 const uploadsEl = $("#uploads");
+const pendingEl = $("#pending");
+const queueEl = $("#queue");
+const uploadEl = $("#upload");
+const discardEl = $("#discard");
 
 let session = null;
 let busy = false;
+
+/** Files chosen but not sent yet, as { file, card }. Sending empties it. */
+let staged = [];
 
 /* ---- session ---- */
 
@@ -178,9 +186,81 @@ function send(blob, channel, onProgress) {
 	});
 }
 
+/* ---- staging ---- */
+
+/**
+ * Dropped and pasted images wait here. Sending them is a deliberate second
+ * step, so the wrong window or the wrong picture is a click away from being
+ * discarded rather than already in the channel.
+ */
+function stage(files) {
+	if (!session) return;
+	if (busy) return say("Still sending the last batch.");
+
+	for (const file of [...files]) staged.push({ file, card: queueCard(file) });
+
+	// So choosing the same file again still fires a change event.
+	fileEl.value = "";
+	refresh();
+	say(staged.length ? "Press Upload to send." : "Nothing to upload.");
+}
+
+function queueCard(file) {
+	const li = document.createElement("li");
+	li.className = "card";
+	li.innerHTML = `<div class="thumb"></div>
+    <div class="card-body">
+      <p class="card-name"></p>
+      <p class="card-state"></p>
+    </div>
+    <button type="button" class="drop-one">Remove</button>`;
+	li.querySelector(".card-name").textContent = file.name;
+	li.querySelector(".card-state").textContent = size(file.size);
+
+	const remove = li.querySelector(".drop-one");
+	remove.setAttribute("aria-label", `Remove ${file.name}`);
+	remove.addEventListener("click", () => unstage(file));
+
+	thumbnail(li, file);
+	queueEl.append(li);
+	return li;
+}
+
+function unstage(file) {
+	if (busy) return;
+	staged = staged.filter((item) => {
+		if (item.file !== file) return true;
+		item.card.remove();
+		return false;
+	});
+	refresh();
+	if (!staged.length) say("");
+}
+
+function clearStaged() {
+	staged = [];
+	queueEl.replaceChildren();
+	refresh();
+}
+
+function refresh() {
+	pendingEl.hidden = !staged.length;
+	uploadEl.textContent =
+		staged.length === 1 ? "Upload 1 image" : `Upload ${staged.length} images`;
+	uploadEl.disabled = busy || !staged.length;
+	discardEl.disabled = busy;
+}
+
+function size(bytes) {
+	return bytes < 1024 * 1024
+		? `${Math.max(1, Math.round(bytes / 1024))} KB`
+		: `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 async function handle(files) {
 	if (busy || !session) return;
 	busy = true;
+	refresh();
 
 	const channel = channelEl.value;
 	let queued = 0;
@@ -201,7 +281,7 @@ async function handle(files) {
 	}
 
 	busy = false;
-	fileEl.value = "";
+	refresh();
 	say(
 		queued
 			? `Queued for ${channel}. The bot posts it in a few seconds.`
@@ -296,7 +376,20 @@ zoneEl.addEventListener("keydown", (e) => {
 		fileEl.click();
 	}
 });
-fileEl.addEventListener("change", () => handle(fileEl.files));
+fileEl.addEventListener("change", () => stage(fileEl.files));
+
+uploadEl.addEventListener("click", () => {
+	if (busy || !staged.length) return;
+	const files = staged.map((item) => item.file);
+	clearStaged();
+	handle(files);
+});
+
+discardEl.addEventListener("click", () => {
+	if (busy) return;
+	clearStaged();
+	say("Discarded.");
+});
 
 function dragging(on) {
 	zoneEl.classList.toggle("dragover", on);
@@ -315,11 +408,11 @@ window.addEventListener("dragleave", (e) => {
 window.addEventListener("drop", (e) => {
 	e.preventDefault();
 	dragging(false);
-	if (e.dataTransfer?.files?.length) handle(e.dataTransfer.files);
+	if (e.dataTransfer?.files?.length) stage(e.dataTransfer.files);
 });
 window.addEventListener("paste", (e) => {
 	const files = [...(e.clipboardData?.files ?? [])];
-	if (files.length) handle(files);
+	if (files.length) stage(files);
 });
 
 start();
