@@ -51,6 +51,16 @@
       <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
     </div>
 
+    <div id="pending" hidden>
+      <h2 class="pending-head">Ready to send</h2>
+      <ul id="queue" class="uploads"></ul>
+      <p class="actions">
+        <button type="button" id="upload" class="primary">Upload</button>
+        <button type="button" id="discard">Discard</button>
+      </p>
+      <p class="hint">Nothing is sent until you press Upload.</p>
+    </div>
+
     <p class="status" id="status" role="status" aria-live="polite"></p>
   </section>
 

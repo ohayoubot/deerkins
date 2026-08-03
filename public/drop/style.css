@@ -39,6 +39,25 @@ label[for="channel"] { margin-right: .4rem; }
 
 .status { color: var(--ink-dim); font-size: .85rem; }
 
+#pending { margin-bottom: 1rem; }
+
+.pending-head { font-size: 1rem; margin: 0 0 .5rem; }
+
+.actions {
+  display: flex;
+  gap: .5rem;
+  margin: .75rem 0 .3rem;
+}
+
+#pending .hint { margin: 0; font-size: .8rem; }
+
+.drop-one {
+  margin-left: auto;
+  flex: none;
+  font-size: .75rem;
+  padding: .2rem .5rem;
+}
+
 .uploads {
   list-style: none;
   margin: 0;
