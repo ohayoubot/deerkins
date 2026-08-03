@@ -64,6 +64,10 @@ pnpm run db:init:preview
 pnpm run db:seed:preview  # optional, only if you want real data to click around
 ```
 
+`db:init` is idempotent, so re-run it against production *and* preview whenever
+`schema.sql` changes. A table added for production only fails at runtime on a
+branch build, not at deploy.
+
 `wrangler pages secret put` writes to Production only. Preview needs its own
 `IP_SALT`, set in the dashboard under the project, Settings, Variables and
 secrets, Preview. Use a different value than production so the two environments
