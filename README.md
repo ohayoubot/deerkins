@@ -94,12 +94,33 @@ the project. This is a separate step.
 The project serves everything. The app is the `deerkins` subdirectory of
 `public`, so it ends up at `<domain>/deerkins/`.
 
+## Drop
+
+`/drop/` trades a signed link from the irc bot for a cookie, uploads images to
+the `hemera` bucket, and queues a line for the bot to say in a channel.
+
+The bot signs those links, so both ends need the same secret:
+
+```sh
+openssl rand -hex 32 | pnpm exec wrangler pages secret put UPLOAD_HMAC_SECRET --project-name deerkins
+```
+
+Give the bot the same value as `OHAYOU_UPLOAD_SECRET`. It keys on the utf-8
+bytes of the string, not on the hex it decodes to. Preview needs its own,
+dashboard-only, like `IP_SALT`.
+
+`PUBLIC_IMAGE_BASE` is the hostname the bucket is served from. R2 custom domains
+send no `X-Content-Type-Options`, so add a transform rule there setting
+`nosniff`. Uploaded bytes are typed from their magic numbers and served from a
+hostname the cookie is not scoped to; that header is the third layer.
+
 ## Checks after deploying
 
-Under project settings, confirm `IP_SALT` is listed under Production and not
-only Preview, that the Production `DB` binding points at `deerkins`, and that
-the Preview `DB` binding points at `deerkins-preview`. If Preview still shows
-`deerkins`, a branch build can write to production data.
+Under project settings, confirm `IP_SALT` and `UPLOAD_HMAC_SECRET` are listed
+under Production and not only Preview, that the Production `DB` and `UPLOADS`
+bindings point at `deerkins` and `hemera`, and that the Preview ones point at
+`deerkins-preview` and `hemera-preview`. If Preview still shows the production
+names, a branch build can write to production data.
 
 Per-deployment preview URLs return 404 for `/deerkins/api/*`. The production
 domain serves it. Test against the production domain.
